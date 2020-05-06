@@ -22,7 +22,7 @@ object RandomSearch {
       val n = 1
       def tInit: Iterator[Trial[ConfigSample]] =
         Iterator
-          .from(0)
+          .from((tIn.map(_.xElliptic).:+(0)).max + 1) //zero if no history
           .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
           .map {
             case (xElliptic, initial) =>
@@ -30,24 +30,25 @@ object RandomSearch {
                 initial,
                 java.util.UUID.randomUUID().toString,
                 None,
-                0.0,
+                budget,
                 xElliptic
               )
           }
 
-      val t = if (tIn.isEmpty) {
-        tInit.take(n)
-      } else {
-        tInit.take(n)
-      }
-      val sh = Future.sequence(
-        t.map(
-          sample =>
-            f(sample.config, budget).map { result =>
-              Trial(sample.config, sample.configID, Some(result), budget, 0)
-          }
-        )
-      )
+      val t = tInit.take(n)
+
+      val sh = Future.sequence(t.map(sample => {
+        println(s"running ${sample.configID} at budget ${sample.budget}")
+        f(sample.config, budget).map { result =>
+          Trial(
+            sample.config,
+            sample.configID,
+            Some(result),
+            budget,
+            sample.xElliptic
+          )
+        }
+      }))
       val newResults = if (remainingIterations >= 0) {
         sh.flatMap { results =>
           Future(tIn ++ results)

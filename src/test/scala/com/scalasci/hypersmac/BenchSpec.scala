@@ -22,7 +22,8 @@ import com.scalasci.hypersmac.api.RendersConfig
 import com.scalasci.hypersmac.implemented.{
   BudgetedSampleFunction,
   GaussianPrior,
-  HyperSMAC
+  HyperSMAC,
+  RandomSearch
 }
 import com.scalasci.hypersmac.model.Trial
 import org.nd4j.linalg.learning.config.AdaGrad
@@ -268,14 +269,23 @@ class BenchSpec extends AnyFlatSpec {
 
         println(eval.stats())
 
-        //this is strictly loss/cost, so we negate the r^2 value
-        -eval.rSquared(0)
+        eval.averageMeanSquaredError()
     }
 
   val result = hs.apply(NauticalConfigurationSpace(), f, R = 10)
-
   val resultSyn = Await.result(result, Duration.Inf)
 
+  val totalResource = resultSyn.map(_.budget).sum
+  val maxBudget = resultSyn.map(_.budget).max
+  val randResult = RandomSearch.apply(
+    NauticalConfigurationSpace(),
+    f,
+    budget = maxBudget,
+    iterations = (totalResource / maxBudget).toInt
+  )
+  val randResultSyn = Await.result(randResult, Duration.Inf)
+
+  // write both result sets to a csv file.
   val of = new java.io.FileWriter("bench.csv")
   resultSyn
     .filter(_.cost.isDefined)
@@ -283,7 +293,17 @@ class BenchSpec extends AnyFlatSpec {
     .foreach { result =>
       println(result)
       of.write(
-        result.configID + "," + result.cost.get + "," + result.budget + "\n"
+        result.configID + "," + result.cost.get + "," + result.budget + ",hyperband\n"
+      )
+      of.flush()
+    }
+  randResultSyn
+    .filter(_.cost.isDefined)
+    .sortBy(a => -a.cost.getOrElse(Double.MaxValue))
+    .foreach { result =>
+      println(result)
+      of.write(
+        result.configID + "," + result.cost.get + "," + result.budget + ",random\n"
       )
       of.flush()
     }
