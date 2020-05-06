@@ -1,3 +1,7 @@
 .DS_STORE
+<<<<<<< HEAD
 .idea/
 */target/
+=======
+.idea
+>>>>>>> 95544482bffed3360e082be7befbc7ea0dd14220

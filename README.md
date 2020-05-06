@@ -1,2 +1,2 @@
 # HyperSMAC
-Hyperband with SMAC auxilliary optimizer
+Hyperband with SMAC auxiliary optimizer
