@@ -37,27 +37,31 @@ object RandomSearch {
 
       val t = tInit.take(n)
 
-      val sh = Future.sequence(t.map(sample => {
-        println(s"running ${sample.configID} at budget ${sample.budget}")
-        f(sample.config, budget).map { result =>
-          Trial(
-            sample.config,
-            sample.configID,
-            Some(result),
-            budget,
-            sample.xElliptic
-          )
-        }
-      }))
-      val newResults = if (remainingIterations >= 0) {
-        sh.flatMap { results =>
-          Future(tIn ++ results)
-        }
-      } else {
-        sh
-      }
+      val newResults = Future
+        .sequence(
+          t.map(sample => {
+              println(s"running ${sample.configID} at budget ${sample.budget}")
+              f(sample.config, budget).map { result =>
+                Trial(
+                  sample.config,
+                  sample.configID,
+                  Some(result),
+                  budget,
+                  sample.xElliptic
+                )
+              }
+            })
+            .toSeq
+        )
+        .map(nr => tIn ++ nr)
 
-      newResults.map(nr => tIn ++ nr)
+      if (remainingIterations > 0) {
+        newResults.flatMap(
+          results => innerLoop(remainingIterations - 1, results)
+        )
+      } else {
+        newResults
+      }
     }
     innerLoop()
   }

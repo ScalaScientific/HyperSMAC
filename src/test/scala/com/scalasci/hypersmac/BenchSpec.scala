@@ -277,12 +277,17 @@ class BenchSpec extends AnyFlatSpec {
 
   val totalResource = resultSyn.map(_.budget).sum
   val maxBudget = resultSyn.map(_.budget).max
+  val iterations = (totalResource / maxBudget).toInt
+
+  print("iterations: " + iterations)
+
   val randResult = RandomSearch.apply(
     NauticalConfigurationSpace(),
     f,
     budget = maxBudget,
-    iterations = (totalResource / maxBudget).toInt
+    iterations = iterations
   )
+
   val randResultSyn = Await.result(randResult, Duration.Inf)
 
   // write both result sets to a csv file.
@@ -292,19 +297,22 @@ class BenchSpec extends AnyFlatSpec {
     .sortBy(a => -a.cost.getOrElse(Double.MaxValue))
     .foreach { result =>
       println(result)
-      of.write(
-        result.configID + "," + result.cost.get + "," + result.budget + ",hyperband\n"
-      )
+      val s = result.configID + "," + result.cost.get + "," + result.budget + ",hyperband\n"
+
+      println(s)
+      of.write(s)
       of.flush()
     }
+
+  println("RANDOM:")
   randResultSyn
     .filter(_.cost.isDefined)
     .sortBy(a => -a.cost.getOrElse(Double.MaxValue))
     .foreach { result =>
       println(result)
-      of.write(
-        result.configID + "," + result.cost.get + "," + result.budget + ",random\n"
-      )
+      val s = result.configID + "," + result.cost.get + "," + result.budget + ",random\n"
+      println(s)
+      of.write(s)
       of.flush()
     }
 
