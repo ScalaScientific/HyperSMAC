@@ -50,9 +50,9 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
 
       val t = {
         val chooser = trainSurrogateModel(historyInner)
-        def tInit: Iterator[Trial[ConfigSample]] =
+        val tInit: Iterator[Trial[ConfigSample]] =
           Iterator
-            .from((historyInner.map(_.xElliptic).:+(0)).max + 1) //zero if no history
+            .from((historyInner.map(_.xElliptic).:+(-1)).max + 1) //zero if no history
             .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
             .map {
               case (xElliptic, initial) =>
