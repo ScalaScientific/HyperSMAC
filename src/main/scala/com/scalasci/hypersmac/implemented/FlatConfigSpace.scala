@@ -13,4 +13,9 @@ case class UniformPrior(a: Double, b: Double) extends Distribution {
     a + (scala.util.Random.nextDouble() * (b - a))
   }
 }
+case class DiscretePrior(dimensions: Int) extends Distribution {
+  override def sample(): Double = {
+    scala.util.Random.nextInt(dimensions)
+  }
+}
 case class FlatConfigSpace(distributions: Map[String, Distribution])

@@ -1,6 +1,6 @@
 package com.scalasci.hypersmac
 
-import com.scalasci.hypersmac.api.RendersConfig
+import com.scalasci.hypersmac.api.RendersAndSamplesConfig
 import com.scalasci.hypersmac.implemented.{
   BudgetedSampleFunction,
   FlatConfigSpace,
@@ -25,8 +25,9 @@ object HyperSMACFiddle extends App {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  implicit val rc: RendersConfig[FlatConfigSpace, Map[String, Double]] =
-    new RendersConfig[FlatConfigSpace, Map[String, Double]] {
+  implicit val rc
+    : RendersAndSamplesConfig[FlatConfigSpace, Map[String, Double]] =
+    new RendersAndSamplesConfig[FlatConfigSpace, Map[String, Double]] {
 
       /**
         * sample

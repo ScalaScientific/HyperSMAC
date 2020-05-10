@@ -1,6 +1,6 @@
 package com.scalasci.hypersmac.implemented
 
-import com.scalasci.hypersmac.api.RendersConfig
+import com.scalasci.hypersmac.api.RendersAndSamplesConfig
 import com.scalasci.hypersmac.model.Trial
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,7 +32,7 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
             R: Double = 20.0,
             runs: Int = 1,
             history: Seq[Trial[ConfigSample]] = Seq.empty)(
-    implicit renders: RendersConfig[ConfigSpace, ConfigSample],
+    implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
     ec: ExecutionContext
   ): Future[Seq[Trial[ConfigSample]]] = {
     //calculate HyperBand constants
@@ -52,7 +52,7 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
         val chooser = trainSurrogateModel(historyInner)
         val tInit: Iterator[Trial[ConfigSample]] =
           Iterator
-            .from((historyInner.map(_.xElliptic).:+(-1)).max + 1) //zero if no history
+            .from(historyInner.map(_.xElliptic).:+(-1).max + 1) //zero if no history
             .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
             .map {
               case (xElliptic, initial) =>
@@ -78,11 +78,10 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
           innerLoop(sMax, historyInner ++ results, runs - 1)
         }
       } else {
-        sh
+        Future(historyInner)
       }
 
-      //concatenate the future results with the history as of now... in the future.
-      newResults.map(results => historyInner ++ results)
+      newResults
     }
 
     // recursively runs the optimization for the specified number of runs.
@@ -107,13 +106,20 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
 
     val contenders =
       samples // this might resume a low-budget run from history if it's good.
-        .filter(_.budget < ri) // ...as long as this SH budget is higher than the candidate's max.
+        .filter(_.budget <= ri) // ...as long as this SH budget is higher than the candidate's max.
         .sortBy(_.cost.getOrElse(Double.MaxValue))
         .take(math.floor(ni / eta).toInt) // we will resume the "ni" most promising-looking candidates remaining...
 
-    val results = Future.traverse(contenders)(samp => {
-      f(samp.config, ri).map { evalResult =>
-        Trial(samp.config, samp.configID, Some(evalResult), ri, samp.xElliptic)
+    val results = Future.traverse(contenders)(sample => {
+      println(s"running ${sample.configID} at budget ${sample.budget}")
+      f(sample.config, ri).map { evalResult =>
+        Trial(
+          sample.config,
+          sample.configID,
+          Some(evalResult),
+          ri,
+          sample.xElliptic
+        )
       }
     })
 

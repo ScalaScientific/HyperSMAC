@@ -1,6 +1,6 @@
 package com.scalasci.hypersmac.implemented
 
-import com.scalasci.hypersmac.api.RendersConfig
+import com.scalasci.hypersmac.api.RendersAndSamplesConfig
 import com.scalasci.hypersmac.model.Trial
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -11,18 +11,20 @@ object RandomSearch {
                                        f: BudgetedSampleFunction[ConfigSample],
                                        budget: Double,
                                        iterations: Int = 100)(
-    implicit renders: RendersConfig[ConfigSpace, ConfigSample],
+    implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
     ec: ExecutionContext
   ): Future[Seq[Trial[ConfigSample]]] = {
 
+    //  A state-aggregating recursive run
     def innerLoop(
       remainingIterations: Int = iterations,
       tIn: Seq[Trial[ConfigSample]] = Seq.empty //these are included to condition smac.
     ): Future[Seq[Trial[ConfigSample]]] = {
       val n = 1
+      //  generate the candidate configs randomly
       def tInit: Iterator[Trial[ConfigSample]] =
         Iterator
-          .from((tIn.map(_.xElliptic).:+(0)).max + 1) //zero if no history
+          .from(tIn.map(_.xElliptic).:+(0).max + 1) //zero if no history
           .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
           .map {
             case (xElliptic, initial) =>

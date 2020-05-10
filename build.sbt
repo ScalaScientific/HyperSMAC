@@ -19,6 +19,12 @@ lazy val root = (project in file("."))
     publish / skip := true
   )
 
+libraryDependencies += "com.github.haifengl" %% "smile-scala" % "2.4.0"
+libraryDependencies += "com.github.haifengl" % "smile-core" % "2.4.0"
+libraryDependencies += "com.github.haifengl" % "smile-plot" % "2.4.0"
+libraryDependencies += "com.github.haifengl" % "smile-data" % "2.4.0"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.1" % "test"
 libraryDependencies += "org.deeplearning4j" % "deeplearning4j-core" % "1.0.0-beta6" % "test"
 libraryDependencies += "org.nd4j" % "nd4j-native-platform" % "1.0.0-beta6" % "test"
+
+resolvers += Resolver.bintrayRepo("cibotech", "public")

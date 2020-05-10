@@ -2,7 +2,9 @@ package com.scalasci.hypersmac
 
 import java.util.logging.Logger
 
+import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
+
 import org.deeplearning4j.nn.weights.WeightInit
 import org.deeplearning4j.eval.RegressionEvaluation
 import java.io.File
@@ -18,20 +20,35 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import com.scalasci.hypersmac.api.RendersConfig
+import com.scalasci.hypersmac.api.{RendersAndSamplesConfig, RendersConfig}
+import com.scalasci.hypersmac.implemented.XGSMAC.XGSMACConfig
 import com.scalasci.hypersmac.implemented.{
   BudgetedSampleFunction,
+  DiscretePrior,
   GaussianPrior,
   HyperSMAC,
-  RandomSearch
+  RandomSearch,
+  XGSMAC
 }
 import com.scalasci.hypersmac.model.Trial
+import org.deeplearning4j.nn.conf.GradientNormalization
 import org.nd4j.linalg.learning.config.AdaGrad
+import smile.data.{DataFrame, Tuple}
+import smile.data.`type`.DataTypes.{DoubleType, StringType}
+import smile.data.`type`.{StructField, StructType}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+@Ignore
 class BenchSpec extends AnyFlatSpec {
   val log = Logger.getLogger("Benchmarks")
+
+  val gradNorms = Map(
+    0 -> GradientNormalization.None,
+    1 -> GradientNormalization.ClipElementWiseAbsoluteValue,
+    2 -> GradientNormalization.ClipL2PerLayer
+  )
   val DATA_URL =
     "https://dl4jdata.blob.core.windows.net/training/seatemp/sea_temp.tar.gz"
   val DATA_PATH =
@@ -88,7 +105,7 @@ class BenchSpec extends AnyFlatSpec {
   }
 
   val path = FilenameUtils.concat(DATA_PATH, "sea_temp/") // set parent directory
-  println(path)
+  log.info(path)
   val featureBaseDir = FilenameUtils.concat(path, "features") // set feature directory
   val targetsBaseDir = FilenameUtils.concat(path, "targets") // set label directory
 
@@ -152,8 +169,15 @@ class BenchSpec extends AnyFlatSpec {
   import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
   import org.nd4j.linalg.activations.Activation
   import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction
-  case class NauticalConfigurationSample(adaGradLR: Double, hiddenSize: Int) {
-    def render() = Array(adaGradLR, hiddenSize)
+  case class NauticalConfigurationSample(adaGradLR: Double,
+                                         hiddenSize: Int,
+                                         gradNormType: GradientNormalization) {
+    def render() =
+      Array(
+        adaGradLR,
+        hiddenSize,
+        gradNorms.map(_.swap).getOrElse(gradNormType, 0)
+      )
     def toConf() = {
       new NeuralNetConfiguration.Builder()
         .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
@@ -178,7 +202,7 @@ class BenchSpec extends AnyFlatSpec {
             .nIn(84)
             .nOut(hiddenSize)
             .gradientNormalization(
-              GradientNormalization.ClipElementWiseAbsoluteValue
+              gradNormType // GradientNormalization.ClipElementWiseAbsoluteValue
             )
             .gradientNormalizationThreshold(10)
             .build
@@ -190,7 +214,7 @@ class BenchSpec extends AnyFlatSpec {
             .nIn(hiddenSize)
             .nOut(52)
             .gradientNormalization(
-              GradientNormalization.ClipElementWiseAbsoluteValue
+              gradNormType // GradientNormalization.ClipElementWiseAbsoluteValue
             )
             .gradientNormalizationThreshold(10)
             .build
@@ -205,14 +229,16 @@ class BenchSpec extends AnyFlatSpec {
     }
   }
   case class NauticalConfigurationSpace(
-    adaGradLR: GaussianPrior = GaussianPrior(0.005, 0.002),
-    hiddenSize: GaussianPrior = GaussianPrior(100, 100)
+    adaGradLR: GaussianPrior = GaussianPrior(0.007, 0.002),
+    hiddenSize: GaussianPrior = GaussianPrior(200, 100),
+    gradNormType: DiscretePrior = DiscretePrior(3)
   ) {
     def sample() = {
-
+      val gradNorm = gradNorms(gradNormType.sample().toInt)
       NauticalConfigurationSample(
         adaGradLR.sample(),
-        hiddenSize.sample().toInt max 20
+        hiddenSize.sample().toInt max 20,
+        gradNorm
       )
     }
   }
@@ -229,7 +255,10 @@ class BenchSpec extends AnyFlatSpec {
     }
 
   implicit val rc =
-    new RendersConfig[NauticalConfigurationSpace, NauticalConfigurationSample] {
+    new RendersAndSamplesConfig[
+      NauticalConfigurationSpace,
+      NauticalConfigurationSample
+    ] {
 
       /**
         * sample
@@ -252,13 +281,23 @@ class BenchSpec extends AnyFlatSpec {
         config.render()
     }
 
+  val xghs =
+    new HyperSMAC[NauticalConfigurationSpace, NauticalConfigurationSample] {
+      override def trainSurrogateModel(
+        history: Seq[Trial[NauticalConfigurationSample]]
+      ): NauticalConfigurationSample => Boolean =
+        XGSMAC[NauticalConfigurationSample](XGSMACConfig())(renders = rc)(
+          history
+        )
+    }
+
   def f: BudgetedSampleFunction[NauticalConfigurationSample] =
     (confSample: NauticalConfigurationSample, budget: Double) =>
       Future {
         val conf = confSample.toConf()
         val net = new MultiLayerNetwork(conf)
 
-        println("training") // Train model on training set
+        log.info("training") // Train model on training set
         net.fit(train, budget.toInt max 1)
 
         val eval = net.evaluateRegression[RegressionEvaluation](test)
@@ -267,20 +306,26 @@ class BenchSpec extends AnyFlatSpec {
         test.reset()
         println()
 
-        println(eval.stats())
+        log.info(eval.stats())
 
         eval.averageMeanSquaredError()
     }
 
-  val result = hs.apply(NauticalConfigurationSpace(), f, R = 10)
+  log.info("Train hyperband")
+  val result = hs.apply(NauticalConfigurationSpace(), f, R = 10, runs = 3)
   val resultSyn = Await.result(result, Duration.Inf)
+
+  log.info("Train hypersmacXG")
+  val resultXG = xghs.apply(NauticalConfigurationSpace(), f, R = 10, runs = 3)
+  val resultSynXG = Await.result(resultXG, Duration.Inf)
 
   val totalResource = resultSyn.map(_.budget).sum
   val maxBudget = resultSyn.map(_.budget).max
-  val iterations = (totalResource / maxBudget).toInt
+  val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
 
-  print("iterations: " + iterations)
+  log.info("iterations: " + iterations)
 
+  log.info("Train RAND/baseline")
   val randResult = RandomSearch.apply(
     NauticalConfigurationSpace(),
     f,
@@ -290,30 +335,63 @@ class BenchSpec extends AnyFlatSpec {
 
   val randResultSyn = Await.result(randResult, Duration.Inf)
 
-  // write both result sets to a csv file.
-  val of = new java.io.FileWriter("bench.csv")
-  resultSyn
-    .filter(_.cost.isDefined)
-    .sortBy(a => -a.cost.getOrElse(Double.MaxValue))
-    .foreach { result =>
-      println(result)
-      val s = result.configID + "," + result.cost.get + "," + result.budget + ",hyperband\n"
+  val schema = new StructType(
+    new StructField("run_id", StringType),
+    new StructField("loss", DoubleType),
+    new StructField("budget", DoubleType),
+    new StructField("method", StringType),
+  )
 
-      println(s)
-      of.write(s)
-      of.flush()
-    }
+  val dfHyperband =
+    DataFrame.of(
+      resultSyn
+        .filter(_.cost.isDefined)
+        .map { result =>
+          Tuple.of(
+            Array(result.configID, result.cost.get, result.budget, "hyperband")
+              .map(_.asInstanceOf[AnyRef]),
+            schema
+          )
+        }
+        .asJava
+    )
 
-  println("RANDOM:")
-  randResultSyn
-    .filter(_.cost.isDefined)
-    .sortBy(a => -a.cost.getOrElse(Double.MaxValue))
-    .foreach { result =>
-      println(result)
-      val s = result.configID + "," + result.cost.get + "," + result.budget + ",random\n"
-      println(s)
-      of.write(s)
-      of.flush()
-    }
+  val dfHyperSMACXG =
+    DataFrame.of(
+      resultSynXG
+        .filter(_.cost.isDefined)
+        .map { result =>
+          Tuple.of(
+            Array(
+              result.configID,
+              result.cost.get,
+              result.budget,
+              "hyperSMAC-XG"
+            ).map(_.asInstanceOf[AnyRef]),
+            schema
+          )
+        }
+        .asJava
+    )
 
+  val dfRandom =
+    DataFrame.of(
+      randResultSyn
+        .filter(_.cost.isDefined)
+        .map { result =>
+          Tuple.of(
+            Array(result.configID, result.cost.get, result.budget, "random")
+              .map(_.asInstanceOf[AnyRef]),
+            schema
+          )
+        }
+        .asJava
+    )
+
+  // write result sets to a csv file.
+  val of = new java.io.FileWriter("assets/bench.csv")
+
+  val df = dfHyperband.union(dfHyperSMACXG, dfRandom)
+
+  smile.write.csv(df, "bench.csv")
 }
