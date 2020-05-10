@@ -24,5 +24,5 @@ object PlotTemp extends App {
   canvas.setAxisLabels("budget", "loss")
 
   val image = canvas.toBufferedImage(400, 400)
-  javax.imageio.ImageIO.write(image, "png", new java.io.File("bench.png"))
+  javax.imageio.ImageIO.write(image, "png", new java.io.File("assets/bench.png"))
 }
