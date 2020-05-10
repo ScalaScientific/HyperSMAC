@@ -20,7 +20,7 @@ jobs:
     - name: Run tests
       run: sbt test
     - name: Archive benchmark results
-        uses: actions/upload-artifact@v1
-        with:
-          name: perf_image
-          path: assets/bench.png
+      uses: actions/upload-artifact@v1
+      with:
+        name: perf_image
+        path: assets/bench.png
