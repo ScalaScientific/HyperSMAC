@@ -1,3 +1,5 @@
+import sbt.Plugins.allRequirements
+
 organization := "com.scalasci"
 
 name := "HyperSMAC"
@@ -16,13 +18,19 @@ ThisBuild / organization := "com.scalasci"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := scala212
 
+val isCiBuild = sys.env.exists{case (key, _) => key=="GITHUB_TOKEN"}
+
+val disableCiPlugins = if(!isCiBuild){
+  List(GitHubPackagesPlugin)
+}else{
+  List.empty
+}
 lazy val root = (project in file("."))
   .settings(
     // crossScalaVersions must be set to Nil on the aggregating project
     crossScalaVersions := Nil,
     publish / skip := true
-
-  ).enablePlugins()
+  ).disablePlugins(disableCiPlugins:_*)
 
 libraryDependencies += "com.github.haifengl" %% "smile-scala" % "2.4.0"
 libraryDependencies += "com.github.haifengl" % "smile-core" % "2.4.0"
