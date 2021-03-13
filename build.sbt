@@ -25,6 +25,7 @@ val disableCiPlugins = if(!isCiBuild){
 }else{
   List.empty
 }
+
 lazy val root = (project in file("."))
   .settings(
     // crossScalaVersions must be set to Nil on the aggregating project
