@@ -11,8 +11,8 @@ lazy val scala212 = "2.12.10"
 lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala213, scala212, scala211)
 
-githubOwner := "scalasci"
-githubRepository := "HyperSMAC"
+ThisBuild / githubOwner := "scalasci"
+ThisBuild / githubRepository := "HyperSMAC"
 
 ThisBuild / organization := "com.scalasci"
 ThisBuild / version := "0.1.0-SNAPSHOT"
