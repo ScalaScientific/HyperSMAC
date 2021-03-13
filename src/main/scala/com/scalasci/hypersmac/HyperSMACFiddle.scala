@@ -24,35 +24,7 @@ object HyperSMACFiddle extends App {
   )
 
   import scala.concurrent.ExecutionContext.Implicits.global
-
-  implicit val rc
-    : RendersAndSamplesConfig[FlatConfigSpace, Map[String, Double]] =
-    new RendersAndSamplesConfig[FlatConfigSpace, Map[String, Double]] {
-
-      /**
-        * sample
-        *
-        * @param configSpace the space which can generate samples which can be rendered to vectors for smac
-        * @param xElliptic   elliptic curve parameter to determine random sample
-        * @return a sample from the config space
-        */
-      override def sample(configSpace: FlatConfigSpace,
-                          xElliptic: Int): Map[String, Double] = {
-        configSpace.distributions.map(a => {
-          a._1 -> a._2.sample()
-        })
-      }
-
-      /**
-        * render a config sample into a smacable vector.
-        *
-        * @param config the config to render
-        * @return the rendered vector
-        */
-      override def render(config: Map[String, Double]): Array[Double] = {
-        config.toSeq.sortBy(_._1).map(_._2).toArray
-      }
-    }
+  import FlatConfigSpace._
 
   val f: BudgetedSampleFunction[Map[String, Double]] =
     new BudgetedSampleFunction[Map[String, Double]] {
@@ -68,9 +40,9 @@ object HyperSMACFiddle extends App {
       }
     }
 
-  val result = hs.apply(space, f)
+  val result = hs.apply().apply(space,f)
 
-  val resultSyn = Await.result(result, Duration.Inf)
+  val resultSyn: Seq[Trial[Map[String, Double]]] = Await.result(result, Duration.Inf)
 
   resultSyn.sortBy(a => -a.cost.getOrElse(Double.MaxValue)).foreach(println)
 

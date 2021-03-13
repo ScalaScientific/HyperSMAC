@@ -4,4 +4,5 @@ case class Trial[Config](config: Config,
                          configID: String,
                          cost: Option[Double] = None,
                          budget: Double,
-                         xElliptic: Int)
+                         xElliptic: Int,
+                         note:Option[String] = None)
