@@ -23,7 +23,7 @@ jobs:
     - name: Archive benchmark results
       uses: actions/upload-artifact@v2
       with:
-        path: assets/benchIris.png
+        path: benchIris.png
     - name: publish artifact
       run: sbt +publish
 

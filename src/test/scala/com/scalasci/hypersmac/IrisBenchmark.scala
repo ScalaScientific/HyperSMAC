@@ -63,41 +63,41 @@ object IrisBenchmark {
 
 class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
   "A hypersmac" should "not crash while running benchmarks" in {
-  val hs = new HyperSMAC[FlatConfigSpace, Map[String, Double]] {
-    override def trainSurrogateModel(
-                                      history: Seq[Trial[Map[String, Double]]]
-                                    ): Map[String, Double] => Boolean = _ => true
-  }
-
-  val xghs =
-    new HyperSMAC[FlatConfigSpace, Map[String, Double]] {
+    val hs = new HyperSMAC[FlatConfigSpace, Map[String, Double]] {
       override def trainSurrogateModel(
                                         history: Seq[Trial[Map[String, Double]]]
-                                      ): Map[String, Double] => Boolean =
-        XGSMAC[Map[String, Double]](XGSMACConfig())(renders = rc)(
-          history
-        )
+                                      ): Map[String, Double] => Boolean = _ => true
     }
-  val xgResult = IrisBenchmark(xghs(R = 50)).map(_.copy(note = Some("xgSmac")))
-  val totalResource = xgResult.map(_.budget).sum
-  val maxBudget = xgResult.map(_.budget).max
-  val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
 
-  val rs = RandomSearch(maxBudget, iterations)
-  val hsResult = IrisBenchmark(hs(R = 50)).map(_.copy(note = Some("hyperSmac")))
-  val rsResult = IrisBenchmark(rs).map(_.copy(note = Some("random")))
+    val xghs =
+      new HyperSMAC[FlatConfigSpace, Map[String, Double]] {
+        override def trainSurrogateModel(
+                                          history: Seq[Trial[Map[String, Double]]]
+                                        ): Map[String, Double] => Boolean =
+          XGSMAC[Map[String, Double]](XGSMACConfig())(renders = rc)(
+            history
+          )
+      }
+    val xgResult = IrisBenchmark(xghs(R = 50)).map(_.copy(note = Some("xgSmac")))
+    val totalResource = xgResult.map(_.budget).sum
+    val maxBudget = xgResult.map(_.budget).max
+    val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
 
-  val bi = new BufferedImage(1000, 1000, BufferedImage.TYPE_INT_ARGB)
-  val g2d = bi.createGraphics
-    g2d.clip(new Rectangle(0, 0, 2000, 1000))
+    val rs = RandomSearch(maxBudget, iterations)
+    val hsResult = IrisBenchmark(hs(R = 50)).map(_.copy(note = Some("hyperSmac")))
+    val rsResult = IrisBenchmark(rs).map(_.copy(note = Some("random")))
 
-  plotBestVsBudg(rsResult ++ hsResult ++ xgResult).canvas()
-    .setTitle("Iris HP OTIM: MLP")
-    .setAxisLabels( "total budget","min loss")
-    .setTitleFont(new Font ("Courier New", Font.BOLD, 20))
-    .setLegendVisible(true).paint(g2d, 1000, 1000)
+    val bi = new BufferedImage(1000, 1000, BufferedImage.TYPE_INT_ARGB)
+    val g2d = bi.createGraphics
+      g2d.clip(new Rectangle(0, 0, 2000, 1000))
 
-  savePlot(bi, new java.io.File("benchIris.png"))
+    plotBestVsBudg(rsResult ++ hsResult ++ xgResult).canvas()
+      .setTitle("Iris HP OTIM: MLP")
+      .setAxisLabels( "total budget","min loss")
+      .setTitleFont(new Font ("Courier New", Font.BOLD, 20))
+      .setLegendVisible(true).paint(g2d, 1000, 1000)
 
-}
+    savePlot(bi, new java.io.File("benchIris.png"))
+
+  }
 }
