@@ -24,7 +24,7 @@ jobs:
       with:
         path: benchIris.png
     - name: deploy app
-      if: github.ref == 'refs/heads/master'
+#      if: github.ref == 'refs/heads/master'
       run: sbt +publish
 #  publish:
 #    runs-on: ubuntu-latest
