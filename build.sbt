@@ -13,7 +13,7 @@ githubOwner := "ScalaScientific"
 githubRepository := "HyperSMAC"
 
 organization := "com.scalasci"
-version := "0.1.2"
+version := "0.1.3"
 
 scalaVersion := scala212
 
