@@ -1,6 +1,6 @@
 package com.scalasci.hypersmac.implemented
 
-import com.scalasci.hypersmac.api.RendersAndSamplesConfig
+import com.scalasci.hypersmac.api.{Optimizer, RendersAndSamplesConfig}
 import com.scalasci.hypersmac.model.Trial
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,68 +26,67 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
     * @param ec an execution context
     * @return all of the completed trials. feeding this back into the function will resume optimization.
     */
-  def apply(space: ConfigSpace,
-            f: BudgetedSampleFunction[ConfigSample],
-            eta: Double = 3.0,
-            R: Double = 20.0,
+  def apply(eta: Double = 3.0,
+            R: Double = 50.0,
             runs: Int = 1,
             history: Seq[Trial[ConfigSample]] = Seq.empty)(
     implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
     ec: ExecutionContext
-  ): Future[Seq[Trial[ConfigSample]]] = {
-    //calculate HyperBand constants
-    val sMax = math.floor(math.log(R) / math.log(eta)).toInt
-    val b = (sMax + 1) * R
+  ): Optimizer[ConfigSpace, ConfigSample] = new Optimizer [ConfigSpace, ConfigSample] {
+    override def apply(space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample]): Future[Seq[Trial[ConfigSample]]] = {
+      //calculate HyperBand constants
+      val sMax = math.floor(math.log(R) / math.log(eta)).toInt
+      val b = (sMax + 1) * R
 
-    // successive calls to inner loop will condition space sample on previous good samples smac filter.
-    def innerLoop(
-      s: Int = sMax,
-      historyInner: Seq[Trial[ConfigSample]] = history, //these are included to condition smac.
-      remainingRuns: Int = runs
-    ): Future[Seq[Trial[ConfigSample]]] = {
-      val r = R * math.pow(eta, -s) // largest resources at smallest s
-      val n = math.ceil(b * math.pow(eta, s) / r).toInt
+      // successive calls to inner loop will condition space sample on previous good samples smac filter.
+      def innerLoop(
+                     s: Int = sMax,
+                     historyInner: Seq[Trial[ConfigSample]] = history, //these are included to condition smac.
+                     remainingRuns: Int = runs
+                   ): Future[Seq[Trial[ConfigSample]]] = {
+        val r = R * math.pow(eta, -s) // largest resources at smallest s
+        val n = math.ceil(b * math.pow(eta, s) / r).toInt
 
-      val t = {
-        val chooser = trainSurrogateModel(historyInner)
-        val tInit: Iterator[Trial[ConfigSample]] =
-          Iterator
-            .from(historyInner.map(_.xElliptic).:+(-1).max + 1) //zero if no history
-            .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
-            .map {
-              case (xElliptic, initial) =>
-                Trial(
-                  initial,
-                  java.util.UUID.randomUUID().toString,
-                  None,
-                  0.0,
-                  xElliptic
-                )
-            }
+        val t = {
+          val chooser = trainSurrogateModel(historyInner)
+          val tInit: Iterator[Trial[ConfigSample]] =
+            Iterator
+              .from(historyInner.map(_.xElliptic).:+(-1).max + 1) //zero if no history
+              .map(xElliptic => xElliptic -> renders.sample(space, xElliptic))
+              .map {
+                case (xElliptic, initial) =>
+                  Trial(
+                    initial,
+                    java.util.UUID.randomUUID().toString,
+                    None,
+                    0.0,
+                    xElliptic
+                  )
+              }
 
-        tInit.filter(sample => chooser(sample.config)).take(n)
+          tInit.filter(sample => chooser(sample.config)).take(n)
+        }
+
+        val sh = runSucessiveHalving(f, t.toSeq, s, n, eta, r)
+        val newResults = if (s >= 0) {
+          sh.flatMap { results =>
+            innerLoop(s - 1, historyInner ++ results, runs)
+          }
+        } else if (remainingRuns < 0) {
+          sh.flatMap { results =>
+            innerLoop(sMax, historyInner ++ results, runs - 1)
+          }
+        } else {
+          Future(historyInner)
+        }
+
+        newResults
       }
 
-      val sh = runSucessiveHalving(f, t.toSeq, s, n, eta, r)
-      val newResults = if (s >= 0) {
-        sh.flatMap { results =>
-          innerLoop(s - 1, historyInner ++ results, runs)
-        }
-      } else if (remainingRuns < 0) {
-        sh.flatMap { results =>
-          innerLoop(sMax, historyInner ++ results, runs - 1)
-        }
-      } else {
-        Future(historyInner)
-      }
-
-      newResults
+      // recursively runs the optimization for the specified number of runs.
+      innerLoop()
     }
-
-    // recursively runs the optimization for the specified number of runs.
-    innerLoop()
   }
-
   private def runSucessiveHalving(
     f: BudgetedSampleFunction[ConfigSample],
     samples: Seq[Trial[ConfigSample]],

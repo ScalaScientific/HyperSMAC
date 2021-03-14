@@ -61,7 +61,7 @@ object XGSMAC {
 
         val df = DataFrame.of(vectors)
         val form: Formula = "target".~
-        val trained = smile.classification.gbm(formula = form, data = df)
+        val trained = smile.classification.gbm(formula = form, data = df, subsample = 0.9)
 
         x: ConfigSample =>
           trained.predict(toTuple(x, label = true)) == 1

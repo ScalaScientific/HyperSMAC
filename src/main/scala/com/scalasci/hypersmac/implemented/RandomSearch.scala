@@ -1,26 +1,25 @@
 package com.scalasci.hypersmac.implemented
 
-import com.scalasci.hypersmac.api.RendersAndSamplesConfig
+import com.scalasci.hypersmac.api.{Optimizer, RendersAndSamplesConfig}
 import com.scalasci.hypersmac.model.Trial
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object RandomSearch {
 
-  def apply[ConfigSpace, ConfigSample](space: ConfigSpace,
-                                       f: BudgetedSampleFunction[ConfigSample],
-                                       budget: Double,
+  def apply[ConfigSpace, ConfigSample](budget: Double,
                                        iterations: Int = 100)(
     implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
     ec: ExecutionContext
-  ): Future[Seq[Trial[ConfigSample]]] = {
-
+  ): Optimizer[ConfigSpace, ConfigSample] = new Optimizer[ConfigSpace, ConfigSample] {
+    override def apply(space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample]): Future[Seq[Trial[ConfigSample]]] ={
     //  A state-aggregating recursive run
     def innerLoop(
-      remainingIterations: Int = iterations,
-      tIn: Seq[Trial[ConfigSample]] = Seq.empty //these are included to condition smac.
-    ): Future[Seq[Trial[ConfigSample]]] = {
+                   remainingIterations: Int = iterations,
+                   tIn: Seq[Trial[ConfigSample]] = Seq.empty //these are included to condition smac.
+                 ): Future[Seq[Trial[ConfigSample]]] = {
       val n = 1
+
       //  generate the candidate configs randomly
       def tInit: Iterator[Trial[ConfigSample]] =
         Iterator
@@ -42,17 +41,17 @@ object RandomSearch {
       val newResults = Future
         .sequence(
           t.map(sample => {
-              println(s"running ${sample.configID} at budget ${sample.budget}")
-              f(sample.config, budget).map { result =>
-                Trial(
-                  sample.config,
-                  sample.configID,
-                  Some(result),
-                  budget,
-                  sample.xElliptic
-                )
-              }
-            })
+            println(s"running ${sample.configID} at budget ${sample.budget}")
+            f(sample.config, budget).map { result =>
+              Trial(
+                sample.config,
+                sample.configID,
+                Some(result),
+                budget,
+                sample.xElliptic
+              )
+            }
+          })
             .toSeq
         )
         .map(nr => tIn ++ nr)
@@ -65,6 +64,9 @@ object RandomSearch {
         newResults
       }
     }
+
     innerLoop()
+
+  }
   }
 }
