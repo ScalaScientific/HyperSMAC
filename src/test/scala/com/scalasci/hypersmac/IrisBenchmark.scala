@@ -91,14 +91,13 @@ class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
   val g2d = bi.createGraphics
     g2d.clip(new Rectangle(0, 0, 2000, 1000))
 
-  val plot =  plotBestVsBudg(rsResult ++ hsResult ++ xgResult).canvas()
+  plotBestVsBudg(rsResult ++ hsResult ++ xgResult).canvas()
     .setTitle("Iris HP OTIM: MLP")
     .setAxisLabels( "total budget","min loss")
     .setTitleFont(new Font ("Courier New", Font.BOLD, 20))
     .setLegendVisible(true).paint(g2d, 1000, 1000)
 
-  savePlot(bi,
-    new java.io.File("assets/benchIris.png"))
+  savePlot(bi, new java.io.File("benchIris.png"))
 
 }
 }
