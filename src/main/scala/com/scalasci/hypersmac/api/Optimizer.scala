@@ -6,6 +6,5 @@ import com.scalasci.hypersmac.model.Trial
 import scala.concurrent.Future
 
 trait Optimizer [ConfigSpace, ConfigSample]{
-  def apply(space: ConfigSpace,
-                                       f: BudgetedSampleFunction[ConfigSample]): Future[Seq[Trial[ConfigSample]]]
+  def apply(space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample]): Future[Seq[Trial[ConfigSample]]]
 }

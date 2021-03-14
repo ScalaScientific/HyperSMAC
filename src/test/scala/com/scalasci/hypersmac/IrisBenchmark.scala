@@ -7,6 +7,7 @@ import com.scalasci.hypersmac.api.Optimizer
 import com.scalasci.hypersmac.implemented.XGSMAC.XGSMACConfig
 import com.scalasci.hypersmac.summary.PlotGenerators.{plotBestVsBudg, savePlot}
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should
 import smile.base.mlp.{Layer, OutputFunction}
 import smile.classification.mlp
 import smile.read
@@ -60,8 +61,8 @@ object IrisBenchmark {
   }
 }
 
-object RunIrisBenchmarks extends AnyFlatSpec {
-
+class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
+  "A hypersmac" should "not crash while running benchmarks" in {
   val hs = new HyperSMAC[FlatConfigSpace, Map[String, Double]] {
     override def trainSurrogateModel(
                                       history: Seq[Trial[Map[String, Double]]]
@@ -77,14 +78,13 @@ object RunIrisBenchmarks extends AnyFlatSpec {
           history
         )
     }
-  val xgResult = IrisBenchmark(xghs(R = 100)).map(_.copy(note = Some("xgSmac")))
-  val xgBest = xgResult.minBy(a => a.cost.getOrElse(0.0)).cost
+  val xgResult = IrisBenchmark(xghs(R = 50)).map(_.copy(note = Some("xgSmac")))
   val totalResource = xgResult.map(_.budget).sum
   val maxBudget = xgResult.map(_.budget).max
   val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
 
   val rs = RandomSearch(maxBudget, iterations)
-  val hsResult = IrisBenchmark(hs(R = 100)).map(_.copy(note = Some("hyperSmac")))
+  val hsResult = IrisBenchmark(hs(R = 50)).map(_.copy(note = Some("hyperSmac")))
   val rsResult = IrisBenchmark(rs).map(_.copy(note = Some("random")))
 
   val bi = new BufferedImage(1000, 1000, BufferedImage.TYPE_INT_ARGB)
@@ -100,4 +100,5 @@ object RunIrisBenchmarks extends AnyFlatSpec {
   savePlot(bi,
     new java.io.File("assets/benchIris.png"))
 
+}
 }
