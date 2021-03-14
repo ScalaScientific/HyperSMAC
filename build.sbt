@@ -17,15 +17,6 @@ version := "0.1.3"
 
 scalaVersion := scala212
 
-val gitBranch = settingKey[String]("Determines current git branch")
-
-gitBranch := {
-  val branch = Process("git rev-parse --abbrev-ref HEAD").lineStream.head
-  val log = sLog.value
-  log.info(s"git branch = ${branch}")
-  branch
-}
-
 //trying to be friendly to third-party devs' local builds
 val isCiBuild = sys.env.exists{case (key, _) => key=="GITHUB_TOKEN"}
 val disableCiPlugins = if(!isCiBuild){
