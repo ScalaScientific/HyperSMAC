@@ -78,13 +78,13 @@ class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
             history
           )
       }
-    val xgResult = IrisBenchmark(xghs(R = 50)).map(_.copy(note = Some("xgSmac")))
+    val xgResult = IrisBenchmark(xghs(R = 10)).map(_.copy(note = Some("xgSmac")))
     val totalResource = xgResult.map(_.budget).sum
     val maxBudget = xgResult.map(_.budget).max
     val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
 
     val rs = RandomSearch(maxBudget, iterations)
-    val hsResult = IrisBenchmark(hs(R = 50)).map(_.copy(note = Some("hyperSmac")))
+    val hsResult = IrisBenchmark(hs(R = 10)).map(_.copy(note = Some("hyperSmac")))
     val rsResult = IrisBenchmark(rs).map(_.copy(note = Some("random")))
 
     val bi = new BufferedImage(1000, 1000, BufferedImage.TYPE_INT_ARGB)

@@ -37,7 +37,7 @@ val disableCiPlugins = if(!isCiBuild){
 lazy val root = (project in file("."))
   .settings(
     crossScalaVersions := supportedScalaVersions,
-    publish / skip := gitBranch.value != "HEAD",
+    publish / skip := false,
   ).disablePlugins(disableCiPlugins:_*)
 
 libraryDependencies += "com.github.haifengl" %% "smile-scala" % "2.4.0"
