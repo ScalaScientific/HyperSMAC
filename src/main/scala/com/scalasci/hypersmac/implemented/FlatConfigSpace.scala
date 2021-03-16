@@ -20,6 +20,11 @@ case class DiscretePrior(dimensions: Int) extends Distribution {
     scala.util.Random.nextInt(dimensions)
   }
 }
+case class BernouliPrior(x:Double = 0.5) extends Distribution {
+  override def sample(): Double = {
+    if(scala.util.Random.nextDouble() < x) 1.0 else 0.0
+  }
+}
 case class FlatConfigSpace(distributions: Map[String, Distribution])
 object FlatConfigSpace {
   implicit val rc
