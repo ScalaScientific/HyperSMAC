@@ -4,17 +4,16 @@ organization := "com.scalasci"
 
 name := "HyperSMAC"
 
+lazy val smileVersion = "2.4.0"
+
 lazy val scala213 = "2.13.2"
 lazy val scala212 = "2.12.10"
 //lazy val scala211 = "2.11.12"  // not supported. please upgrade.
 lazy val supportedScalaVersions = List(scala213, scala212)
 scalaVersion := scala212
 
-githubOwner := "ScalaScientific"
-githubRepository := "HyperSMAC"
-
 organization := "com.scalasci"
-version := "0.1.5"
+version := "0.1.6-SNAPSHOT"
 
 ThisBuild / organizationHomepage := Some(url("https://github.com/ScalaScientific"))
 
@@ -33,7 +32,7 @@ ThisBuild / developers := List(
   )
 )
 
-ThisBuild / description := "A hyperparameter Optimization utility."
+ThisBuild / description := "A hyperband + smac hyperparameter optimization utility."
 ThisBuild / licenses := List("Apache 2" -> new URL("http://www.apache.org/licenses/LICENSE-2.0.txt"))
 ThisBuild / homepage := Some(url("https://github.com/ScalaScientific"))
 
@@ -45,34 +44,22 @@ gitBranch := {
   log.info(s"git branch = ${branch}")
   branch
 }
-//
-//lazy val sonatypePublishTo = {
-//  val nexus = "https://s01.oss.sonatype.org/"
-//  if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
-//  else Some("releases" at nexus + "service/local/staging/deploy/maven2")
-//}
-//trying to be friendly to third-party devs' local builds
-val isCiBuild = sys.env.exists{case (key, _) => key=="GITHUB_TOKEN"}
-val disableCiPlugins = if(!isCiBuild){
-  List(GitHubPackagesPlugin)
-}else{
-  List.empty
-}
 
 val RELEASE_SONATYPE = sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean
-//ThisBuild / publishTo :=  githubPublishTo.value
+
 lazy val root = (project in file("."))
   .settings(
-    crossScalaVersions := supportedScalaVersions,
-    publish / skip := false,
-    publishTo := sonatypePublishToBundle.value,
+      crossScalaVersions := supportedScalaVersions,
+      publish / skip := false,
+      publishTo := sonatypePublishToBundle.value,
       sonatypeCredentialHost := "s01.oss.sonatype.org"
-    ).disablePlugins(disableCiPlugins:_*)
+    )
 
-libraryDependencies += "com.github.haifengl" %% "smile-scala" % "2.4.0"
-libraryDependencies += "com.github.haifengl" % "smile-core" % "2.4.0"
-libraryDependencies += "com.github.haifengl" % "smile-plot" % "2.4.0"
-libraryDependencies += "com.github.haifengl" % "smile-data" % "2.4.0"
+// even though we eventually aim to become zero-dependency, we presently bring in smile for XG boost and plotting.
+libraryDependencies += "com.github.haifengl" %% "smile-scala" % smileVersion
+libraryDependencies += "com.github.haifengl" % "smile-core" % smileVersion
+libraryDependencies += "com.github.haifengl" % "smile-plot" % smileVersion
+libraryDependencies += "com.github.haifengl" % "smile-data" % smileVersion
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.1" % "test"
 libraryDependencies += "org.deeplearning4j" % "deeplearning4j-core" % "1.0.0-beta6" % "test"
 libraryDependencies += "org.nd4j" % "nd4j-native-platform" % "1.0.0-beta6" % "test"
