@@ -45,8 +45,6 @@ gitBranch := {
   branch
 }
 
-val RELEASE_SONATYPE = sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean
-
 lazy val root = (project in file("."))
   .settings(
       crossScalaVersions := supportedScalaVersions,
