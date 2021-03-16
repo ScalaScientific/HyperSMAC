@@ -1,5 +1,7 @@
 # HyperSMAC
-![Scala CI](https://github.com/ScalaScientific/HyperSMAC/workflows/Scala%20CI/badge.svg)
+![Scala CI](https://github.com/ScalaScientific/HyperSMAC/workflows/Scala%20CI/badge.svg) 
+[![Sonatype Nexus (Snapshots) badge](https://img.shields.io/nexus/s/https/s01.oss.sonatype.org/com.scalasci/hypersmac_2.13.svg)](https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/com/scalasci/hypersmac_2.13/)
+[![Sonatype Nexus (Snapshots) badge](https://img.shields.io/nexus/r/https/s01.oss.sonatype.org/com.scalasci/hypersmac_2.13.svg)](https://s01.oss.sonatype.org/service/local/repositories/releases/content/com/scalasci/hypersmac_2.13/)
 
 Hyperband with SMAC auxiliary optimizer
 
