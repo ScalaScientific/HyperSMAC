@@ -1,6 +1,6 @@
 package com.scalasci.hypersmac.summary
 
-import com.scalasci.hypersmac.model.Trial
+import com.scalasci.hypersmac.model.TrialWithResult
 import smile.data.{DataFrame, Tuple}
 import smile.data.`type`.{DataTypes, DoubleType, StringType, StructField, StructType}
 
@@ -23,13 +23,12 @@ object TrialSchema {
     * @param resultSyn
     * @return
     */
-  def trialsToSmileDF(resultSyn: Seq[Trial[_]]): DataFrame = {
+  def trialsToSmileDF(resultSyn: Seq[TrialWithResult[_]]): DataFrame = {
     DataFrame.of(
       resultSyn
-        .filter(_.cost.isDefined)
         .map { result =>
           Tuple.of(
-            Array(result.configID, result.cost.get, result.budget, result.note.getOrElse(""))
+            Array(result.setup.configID, result.cost, result.setup.budget, result.setup.note.getOrElse(""))
               .map(_.asInstanceOf[AnyRef]),
             schema
           )
