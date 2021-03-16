@@ -12,8 +12,13 @@ lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
 scalaVersion := scala212
 
+// Release Instructions
+// sbt:
+// +publishSigned
+// sonatypeBundleRelease
+
 organization := "com.scalasci"
-version := "0.1.6"
+version := "0.1.7-SNAPSHOT"
 
 ThisBuild / organizationHomepage := Some(url("https://github.com/ScalaScientific"))
 
