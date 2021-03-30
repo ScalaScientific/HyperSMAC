@@ -21,7 +21,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object IrisBenchmark {
-  def apply(hs: Optimizer[FlatConfigSpace, Map[String, Double]]) = {
+  def apply(hs: Optimizer[FlatConfigSpace, Map[String, Double]], note:String) = {
 
     // define a configuration space for the mlp parameters
     // this test defines a basic string/double config sample, but this library allows arbitrary config types like
@@ -69,7 +69,7 @@ object IrisBenchmark {
     // we convert the basic cost function to the batch/budget-oriented BudgetedSampleFunction.
     val g = BudgetedSampleFunction.fromSimpleCostFunction(f)
     // generate trial history
-    val result = hs.produceTrials(space, g)
+    val result = hs.produceTrials(space, g, Some(note))
 
     Await.result(result, Duration.Inf)
   }
@@ -96,7 +96,7 @@ class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
         }
       }
 
-    val xgResult = IrisBenchmark(xghs(R = 50)).map(a=>a.copy(trial = a.trial.copy(note = Some("xgHyperSMAC"))))
+    val xgResult = IrisBenchmark(xghs(R = 50), "XGHyperSMAC")
     val totalResource = xgResult.map(_.setup.budget).sum
     val maxBudget = xgResult.map(_.setup.budget).max
     val iterations = (totalResource / maxBudget).toInt * 2 //rand2x
@@ -104,8 +104,8 @@ class RunIrisBenchmarks extends AnyFlatSpec with should.Matchers {
     // run random search for comparison
     val rs = RandomSearch(maxBudget, iterations)
 
-    val hsResult = IrisBenchmark(hs(R = 50)).map(a=>a.copy(trial = a.trial.copy(note = Some("hyperband"))))
-    val rsResult = IrisBenchmark(rs).map(a=>a.copy(trial = a.trial.copy(note = Some("random"))))
+    val hsResult = IrisBenchmark(hs(R = 50), "hyperband")
+    val rsResult = IrisBenchmark(rs, "random")
 
     // create the plot. This code is a bit verbose due to a bug in smile plotting which truncates title/legend.
     // fix is on smile master, but not released.

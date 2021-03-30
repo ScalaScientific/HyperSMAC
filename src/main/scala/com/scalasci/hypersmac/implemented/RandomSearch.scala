@@ -12,7 +12,7 @@ object RandomSearch {
                                         implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
                                         ec: ExecutionContext
                                       ): Optimizer[ConfigSpace, ConfigSample] =
-    (space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample]) => {
+    (space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample], note:Option[String]) => {
       //  A state-aggregating recursive run
       def innerLoop(remainingIterations: Int = iterations,
                     tIn: Seq[TrialWithResult[ConfigSample]] = Seq.empty //these are included to condition smac.
@@ -30,7 +30,8 @@ object RandomSearch {
                   initial,
                   java.util.UUID.randomUUID().toString,
                   budget,
-                  xElliptic
+                  xElliptic,
+                  note = note
                 )
             }
 

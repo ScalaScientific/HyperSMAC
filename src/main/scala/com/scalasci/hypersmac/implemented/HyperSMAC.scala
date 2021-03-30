@@ -26,8 +26,10 @@ object BudgetedSampleFunction {
       override def evaluate(configurations: Seq[TrialSetup[ConfigSample]],
                             budget: Double)(implicit executionContext: ExecutionContext):
       Future[Seq[TrialWithResult[ConfigSample]]] = {
-        Future.sequence(configurations.map { cfg => f.evaluate(cfg.config, budget)
-          .map { cost => TrialWithResult(cfg, cost) } })
+        Future.sequence(configurations.map { cfg =>
+          f.evaluate(cfg.config, budget)
+            .map { cost => TrialWithResult(cfg, cost) }
+        })
       }
     }
   }
@@ -63,7 +65,7 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
             history: Seq[TrialWithResult[ConfigSample]] = Seq.empty)(
              implicit renders: RendersAndSamplesConfig[ConfigSpace, ConfigSample],
              ec: ExecutionContext
-           ): Optimizer[ConfigSpace, ConfigSample] = (space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample]) => {
+           ): Optimizer[ConfigSpace, ConfigSample] = (space: ConfigSpace, f: BudgetedSampleFunction[ConfigSample], note: Option[String]) => {
     //calculate HyperBand constants
     val sMax = math.floor(math.log(R) / math.log(eta)).toInt
     val b = (sMax + 1) * R
@@ -72,10 +74,12 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
     def innerLoop(
                    s: Int = sMax,
                    historyInner: Seq[TrialWithResult[ConfigSample]] = history, //these are included to condition smac.
-                   remainingRuns: Int = runs
+                   remainingRuns: Int = runs - 1
                  ): Future[Seq[TrialWithResult[ConfigSample]]] = {
       val r = R * math.pow(eta, -s) // largest resources at smallest s
-      val n = math.ceil(b * math.pow(eta, s) / r).toInt
+      val n = math.ceil(b / R * math.pow(eta, s) / (sMax + 1)).toInt // the original hypersmac paper has an inconsistency
+      //between Algorithm 1 and Table 1. This implementation builds the implied correct version which differs from
+      //Algorithm 1 in that the the denominator of n contains (SMax + 1) instead of (s+1)
 
       val t = {
         // chooser is a binary classifier. Typically, the surrogate model will be attempting to learn which
@@ -92,22 +96,23 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
                   initial,
                   java.util.UUID.randomUUID().toString,
                   0.0,
-                  xElliptic
+                  xElliptic,
+                  note = note
                 )
             }
         // filter them per their predicted quality according to chooser.
         tInit.filter(sample => chooser(sample.setup.config)).take(n)
       }
 
-      // run successive halving on the
-      val sh = runSuccessiveHalving(f, t.toSeq, s, n, eta, r)
-      val newResults = if (s >= 0) {
+      // run successive halving
+      lazy val sh = runSuccessiveHalving(f, t.toSeq, s, n, eta, r, i = 0)
+      val newResults = if (s > 0) {
         sh.flatMap { results =>
-          innerLoop(s - 1, historyInner ++ results, runs)
+          innerLoop(s - 1, historyInner ++ results, remainingRuns)
         }
-      } else if (remainingRuns < 0) {
+      } else if (remainingRuns > 0) {
         sh.flatMap { results =>
-          innerLoop(sMax, historyInner ++ results, runs - 1)
+          innerLoop(sMax, historyInner ++ results, remainingRuns - 1)
         }
       } else {
         // we are done. don't recurse any deeper.
@@ -122,17 +127,17 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
   }
 
   private def runSuccessiveHalving(
-                                   f: BudgetedSampleFunction[ConfigSample],
-                                   samples: Seq[HasSetup[ConfigSample]],
-                                   iMax: Int,
-                                   n: Int,
-                                   eta: Double,
-                                   r: Double,
-                                   i: Int = 0
-                                 )(implicit ec: ExecutionContext): Future[Seq[TrialWithResult[ConfigSample]]] = {
+                                    f: BudgetedSampleFunction[ConfigSample],
+                                    samples: Seq[HasSetup[ConfigSample]],
+                                    iMax: Int,
+                                    n: Int,
+                                    eta: Double,
+                                    r: Double,
+                                    i: Int = 0
+                                  )(implicit ec: ExecutionContext): Future[Seq[TrialWithResult[ConfigSample]]] = {
 
     // number of sub-runs for this iteration
-    val ni = n * math.pow(eta, -i)
+    val ni: Int = (n * math.pow(eta, -i)).toInt
 
     //  resource allotment for each sub-run
     val ri = r * math.pow(eta, i)
@@ -145,19 +150,20 @@ trait HyperSMAC[ConfigSpace, ConfigSample] {
         .sortBy { case cfg: TrialSetup[ConfigSample] => Double.MaxValue
         case cfg: TrialWithResult[ConfigSample] => cfg.cost
         }
-        .take(math.floor(ni / eta).toInt) // we will resume the "ni" most promising-looking candidates remaining...
+        .take(ni.toInt) // we will resume the "ni" most promising-looking candidates remaining...
+    //        .take(math.floor(ni / eta).toInt) // we will resume the "ni" most promising-looking candidates remaining...
 
     val results = f.evaluate(contenders.map(_.setup.copy(budget = ri)), ri)
 
     // returning recursively
     results.flatMap { results =>
       if (i >= iMax) {
-        Future{
+        Future {
           samples.flatMap {
             //Only return proposals which have been scored.
             case cfg: TrialWithResult[ConfigSample] => Some(cfg)
             case _: TrialSetup[ConfigSample] => None
-          } ++ results  // include the new results
+          } ++ results // include the new results
         }
       } else {
         runSuccessiveHalving(f, results, iMax, n, eta, r, i + 1).map {
