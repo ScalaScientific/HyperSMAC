@@ -25,7 +25,7 @@ class TestConstants
       override def evaluate(configurations: Seq[TrialSetup[Map[String, Cost]]], budget: Cost)(implicit executionContext: ExecutionContext): Future[Seq[TrialWithResult[Map[String, Cost]]]] = {
         println("=====BUDGETED SAMP FUN EVAL=====")
         println(s"  n trials: ${configurations.length}")
-        println(s"  nudget:   ${budget}")
+        println(s"  budget:   ${budget}")
         assert(budget * configurations.length == R)
         Future(configurations.map(cfg => TrialWithResult(cfg, 0.0)))(executionContext)
       }
@@ -39,3 +39,4 @@ class TestConstants
     }
   }
 }
+zm
