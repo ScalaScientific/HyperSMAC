@@ -21,10 +21,10 @@ object XGSMAC {
       //      println(s"training on ${history.length} past trials")
       val renders = implicitly[RendersConfig[ConfigSample]]
 
-      val (minBudget, maxBudget) = history.foldLeft(Option.empty[(Double, Double)]) {
+      val (minBudget:Double, maxBudget:Double) = history.foldLeft(Option.empty[(Double, Double)]) {
         case (Some((minS, maxS)), r) => Some((minS min r.trial.budget) -> (maxS max r.trial.budget))
         case (None, r) => Some(r.trial.budget -> r.trial.budget)
-      }.getOrElse(0 -> 0)
+      }.getOrElse(0.0 -> 0.0)
 
       val usefulHistory = history.filter(h => (h.trial.budget == maxBudget || !config.onlyTrainMaxBudget) &&
                                               (h.trial.budget >= config.minBudgetTrain.getOrElse(minBudget)))
