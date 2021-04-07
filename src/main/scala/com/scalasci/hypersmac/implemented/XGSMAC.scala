@@ -10,10 +10,18 @@ import scala.collection.JavaConverters._
 
 object XGSMAC {
 
+  case class XGBConfig(subsample: Double = 0.9,
+                       nTrees: Int = 100,
+                       maxDepth: Int = 4,
+                       maxNodes: Int = 5,
+                       nodeSize: Int = 5,
+                       shrinkage: Double = 0.05)
+
   case class XGSMACConfig(takeTopPercent: Double = 0.2,
                           minNTrain: Int = 30,
                           minBudgetTrain: Option[Double] = None,
-                          onlyTrainMaxBudget: Boolean = false)
+                          onlyTrainMaxBudget: Boolean = false,
+                          xgbConfig: XGBConfig = XGBConfig())
 
   def apply[ConfigSample: RendersConfig](config: XGSMACConfig):
   Seq[TrialWithResult[ConfigSample]] => ConfigSample => Boolean =
@@ -21,13 +29,13 @@ object XGSMAC {
       //      println(s"training on ${history.length} past trials")
       val renders = implicitly[RendersConfig[ConfigSample]]
 
-      val (minBudget:Double, maxBudget:Double) = history.foldLeft(Option.empty[(Double, Double)]) {
+      val (minBudget: Double, maxBudget: Double) = history.foldLeft(Option.empty[(Double, Double)]) {
         case (Some((minS, maxS)), r) => Some((minS min r.trial.budget) -> (maxS max r.trial.budget))
         case (None, r) => Some(r.trial.budget -> r.trial.budget)
       }.getOrElse(0.0 -> 0.0)
 
       val usefulHistory = history.filter(h => (h.trial.budget == maxBudget || !config.onlyTrainMaxBudget) &&
-                                              (h.trial.budget >= config.minBudgetTrain.getOrElse(minBudget)))
+        (h.trial.budget >= config.minBudgetTrain.getOrElse(minBudget)))
 
       if (usefulHistory.length >= config.minNTrain) {
         //train smac classifier
@@ -73,7 +81,16 @@ object XGSMAC {
 
         val df = DataFrame.of(vectors)
         val form: Formula = "target".~
-        val trained = smile.classification.gbm(formula = form, data = df, subsample = 0.9)
+        val trained =
+          smile.classification.gbm(
+            formula = form, data = df,
+            subsample = config.xgbConfig.subsample,
+            ntrees = config.xgbConfig.nTrees,
+            maxDepth = config.xgbConfig.maxDepth,
+            maxNodes = config.xgbConfig.maxNodes,
+            nodeSize = config.xgbConfig.nodeSize,
+            shrinkage = config.xgbConfig.shrinkage
+          )
 
         x: ConfigSample =>
           trained.predict(toTuple(x, label = true)) == 1
