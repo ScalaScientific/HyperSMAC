@@ -18,7 +18,7 @@ scalaVersion := scala212
 // sonatypeBundleRelease
 
 organization := "com.scalasci"
-version := "0.1.7-SNAPSHOT"
+version := "0.1.7"
 
 ThisBuild / organizationHomepage := Some(url("https://github.com/ScalaScientific"))
 
